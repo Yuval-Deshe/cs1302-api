@@ -10,7 +10,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 /**
- * REPLACE WITH NON-SHOUTING DESCRIPTION OF YOUR APP.
+ * A trivia game using the OpenTriviaDB API and the Merriam-Webster Dictionary API.
  */
 public class ApiApp extends Application {
     Stage stage;
