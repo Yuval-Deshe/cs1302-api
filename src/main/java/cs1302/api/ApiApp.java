@@ -8,6 +8,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.text.*;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
@@ -29,6 +30,8 @@ public class ApiApp extends Application {
      */
     public ApiApp() {
         titleRoot = new VBox(16);
+        gameRoot = new VBox(16);
+        endRoot = new VBox(64);
     } // ApiApp
 
     /** {@inheritDoc} */
@@ -38,12 +41,13 @@ public class ApiApp extends Application {
         this.stage = stage;
 
         createTitleScreen();
+        createGameScreen();
+        createEndScreen();
 
-        //gameScreen = new Scene(gameRoot, 800, 320);
         //endScreen = new Scene(endRoot, 800, 320);
 
         // setup stage
-        changeScreen(titleScreen, "Trivia App: Title Screen");
+        changeScreen(endScreen, "Trivia App: Title Screen");
         stage.setOnCloseRequest(event -> Platform.exit());
         stage.sizeToScene();
         stage.show();
@@ -77,32 +81,14 @@ public class ApiApp extends Application {
         difficultySelect.getItems().addAll("Easy", "Medium", "Hard");
         ComboBox<String> categorySelect = new ComboBox<String>();
         categorySelect.getItems().addAll(
-            "Any Category",
-            "General Knowledge",
-            "Books",
-            "Film",
-            "Music",
-            "Musicals & Theatre",
-            "Television",
-            "Video Games",
-            "Board Games",
             "Science & Nature",
             "Computers",
-            "Mathematics",
             "Mythology",
-            "Sports",
             "Geography",
-            "History",
-            "Politics",
             "Art",
-            "Celebrities",
             "Animals",
             "Vehicles",
-            "Comics",
-            "Gadgets",
-            "Anime & Manga",
-            "Cartoons & Animations");
-
+            "Comics");
         TextField numField = new TextField();
 
         // containers for the above elements
@@ -113,6 +99,7 @@ public class ApiApp extends Application {
 
         Button playButton = new Button("Play");
         HBox playBox = new HBox(8, playButton);
+
         // setup scene
         titleRoot.getChildren().addAll(titleBox, playBox, difficultyBox, categoryBox, numBox);
         titleBox.setAlignment(Pos.CENTER);
@@ -122,5 +109,75 @@ public class ApiApp extends Application {
         playBox.setAlignment(Pos.CENTER);
         titleScreen = new Scene(titleRoot, 800, 320);
     } // createTitleScreen
+
+    /** Initializes the game screen, to be shown when the Play button is cilcked. */
+    private void createGameScreen() {
+        Label questionLabel = new Label("Question placeholder");
+        Label aLabel = new Label("A)");
+        Label bLabel = new Label("B)");
+        Label cLabel = new Label("C)");
+        Label dLabel = new Label("D)");
+
+        Button aButton = new Button("A");
+        aButton.setPrefSize(200, 80);
+        aButton.setWrapText(true);
+        Button bButton = new Button("B");
+        bButton.setPrefSize(200, 80);
+        bButton.setWrapText(true);
+        Button cButton = new Button("C");
+        cButton.setPrefSize(200, 80);
+        cButton.setWrapText(true);
+        Button dButton = new Button("D");
+        dButton.setPrefSize(200, 80);
+        dButton.setWrapText(true);
+
+        Button nextButton = new Button("Next");
+        nextButton.setAlignment(Pos.CENTER);
+        Label defLabel = new Label("Definiton: ");
+
+        VBox aBox = new VBox(8, aLabel, aButton);
+        aBox.setAlignment(Pos.TOP_LEFT);
+        VBox bBox = new VBox(8, bLabel, bButton);
+        bBox.setAlignment(Pos.TOP_RIGHT);
+        VBox cBox = new VBox(8, cLabel, cButton);
+        cBox.setAlignment(Pos.BOTTOM_LEFT);
+        VBox dBox = new VBox(8, dLabel, dButton);
+        dBox.setAlignment(Pos.BOTTOM_RIGHT);
+
+        HBox questionBox = new HBox(16, questionLabel);
+        HBox row1 = new HBox(16, aBox, bBox);
+        HBox row2 = new HBox(16, cBox, dBox);
+        HBox defBox = new HBox(16, defLabel);
+        HBox nextBox = new HBox(16, nextButton);
+        nextBox.setAlignment(Pos.CENTER);
+        defBox.setAlignment(Pos.CENTER);
+
+        gameRoot.getChildren().addAll(questionBox, row1, row2, nextBox, defBox);
+        questionBox.setAlignment(Pos.CENTER);
+        row1.setAlignment(Pos.CENTER);
+        row2.setAlignment(Pos.CENTER);
+        gameScreen = new Scene(gameRoot, 800, 320);
+    } // createGameScreen
+
+        /** Initializes the end screen, to be shown when the game is over. */
+    private void createEndScreen() {
+        Label gameOverLabel = new Label("Game Over!");
+        gameOverLabel.setFont(new Font(30));
+        Label scoreLabel = new Label("Correct answers: x/10\n" +
+            "Score: x%");
+        scoreLabel.setFont(new Font(30));
+        Button playAgainButton = new Button("Play again?");
+        playAgainButton.setPrefSize(200, 80);
+
+        HBox gameOverBox = new HBox(8, gameOverLabel);
+        HBox scoreBox = new HBox(8, scoreLabel);
+        HBox playAgainBox = new HBox(8, playAgainButton);
+        gameOverBox.setAlignment(Pos.CENTER);
+        scoreBox.setAlignment(Pos.CENTER);
+        playAgainBox.setAlignment(Pos.CENTER);
+
+        endRoot.getChildren().addAll(gameOverBox, scoreBox, playAgainBox);
+        endScreen = new Scene(endRoot, 800, 320);
+    } // createEndScreen
 
 } // ApiApp
