@@ -16,6 +16,19 @@ import javafx.stage.Stage;
  * A trivia game using the OpenTriviaDB API and the Merriam-Webster Dictionary API.
  */
 public class ApiApp extends Application {
+
+    /** HTTP client. */
+    public static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+        .version(HttpClient.Version.HTTP_2)           // uses HTTP protocol version 2 where possible
+        .followRedirects(HttpClient.Redirect.NORMAL)  // always redirects, except from HTTPS to HTTP
+        .build();                                     // builds and returns a HttpClient object
+
+    /** Google {@code Gson} object for parsing JSON-formatted strings. */
+    public static Gson GSON = new GsonBuilder()
+        .setPrettyPrinting()                          // enable nice output when printing
+        .create();                                    // builds and returns a Gson object
+
+
     Stage stage;
     Scene titleScreen;
     Scene gameScreen;
@@ -47,7 +60,7 @@ public class ApiApp extends Application {
         //endScreen = new Scene(endRoot, 800, 320);
 
         // setup stage
-        changeScreen(endScreen, "Trivia App: Title Screen");
+        changeScreen(titleScreen, "Trivia App: Title Screen");
         stage.setOnCloseRequest(event -> Platform.exit());
         stage.sizeToScene();
         stage.show();
@@ -78,7 +91,7 @@ public class ApiApp extends Application {
         Label categoryLabel = new Label("Select your category:");
         Label numLabel = new Label("Enter your desired number of questions (max 25):");
         ComboBox<String> difficultySelect = new ComboBox<String>();
-        difficultySelect.getItems().addAll("Easy", "Medium", "Hard");
+        difficultySelect.getItems().addAll("Any Difficulty", "Easy", "Medium", "Hard");
         ComboBox<String> categorySelect = new ComboBox<String>();
         categorySelect.getItems().addAll(
             "Science & Nature",
@@ -101,7 +114,8 @@ public class ApiApp extends Application {
         HBox playBox = new HBox(8, playButton);
 
         // setup scene
-        titleRoot.getChildren().addAll(titleBox, playBox, difficultyBox, categoryBox, numBox);
+        titleRoot.getChildren().addAll(titleBox, new Pane(),
+            difficultyBox, categoryBox, numBox, playBox);
         titleBox.setAlignment(Pos.CENTER);
         difficultyBox.setAlignment(Pos.CENTER);
         categoryBox.setAlignment(Pos.CENTER);
@@ -163,7 +177,7 @@ public class ApiApp extends Application {
     private void createEndScreen() {
         Label gameOverLabel = new Label("Game Over!");
         gameOverLabel.setFont(new Font(30));
-        Label scoreLabel = new Label("Correct answers: x/10\n" +
+        Label scoreLabel = new Label("Correct answers: x/x\n" +
             "Score: x%");
         scoreLabel.setFont(new Font(30));
         Button playAgainButton = new Button("Play again?");
@@ -179,5 +193,21 @@ public class ApiApp extends Application {
         endRoot.getChildren().addAll(gameOverBox, scoreBox, playAgainBox);
         endScreen = new Scene(endRoot, 800, 320);
     } // createEndScreen
+
+    /** Creates a full URI to be used by the HTTP request.
+     *
+     * @return the URI to be used by the HTTP request
+     */
+    private URI createSearchURI () {
+        String term = searchField.getText().trim();
+        String media = selectMedia.getValue();
+
+        String searchTerm = URLEncoder.encode(term, StandardCharsets.UTF_8);
+        String limit = URLEncoder.encode("200", StandardCharsets.UTF_8);
+        String searchMedia = URLEncoder.encode(media, StandardCharsets.UTF_8);
+        String query = String.format("term=%s&limit=%s&media=%s", searchTerm, limit, searchMedia);
+        return URI.create(BASE_URI + query);
+    } // createSearchURI
+
 
 } // ApiApp
