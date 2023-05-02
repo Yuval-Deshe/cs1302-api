@@ -12,6 +12,7 @@ import javafx.application.Platform;
 import javafx.geometry.Pos;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
@@ -48,10 +49,35 @@ public class ApiApp extends Application {
     VBox titleRoot;
     VBox gameRoot;
     VBox endRoot;
+
+    // Elements on the title screen
     Button playButton;
     ComboBox<String> difficultySelect;
     ComboBox<String> categorySelect;
     TextField numField;
+
+    // Elements on the game screen
+    Label questionLabel;
+    Label aLabel;
+    Label bLabel;
+    Label cLabel;
+    Label dLabel;
+    Button aButton;
+    Button bButton;
+    Button cButton;
+    Button dButton;
+    Button nextButton;
+    Label defLabel;
+
+    // Elements on the end screen
+    Label gameOverLabel;
+    Label scoreLabel;
+    Button playAgainButton;
+
+    String category;
+    int questionNum;
+    TriviaResponse triviaResponse;
+    TriviaResult currentQuestion;
 
 
     /**
@@ -70,7 +96,13 @@ public class ApiApp extends Application {
         createTitleScreen();
         createGameScreen();
         createEndScreen();
-        playButton.setOnAction(e -> System.out.println(getTriviaQuestions()));
+        playButton.setOnAction(e -> {
+            triviaResponse = getTriviaQuestions();
+            currentQuestion = triviaResponse.results[0];
+            questionNum = 0;
+            System.out.println(createDictionarySearchURI());
+            System.out.println(Arrays.toString(getDictionaryDefinition()));
+        });
     } // init
 
     /** {@inheritDoc} */
@@ -150,28 +182,28 @@ public class ApiApp extends Application {
 
     /** Initializes the game screen, to be shown when the Play button is cilcked. */
     private void createGameScreen() {
-        Label questionLabel = new Label("Question placeholder");
-        Label aLabel = new Label("A)");
-        Label bLabel = new Label("B)");
-        Label cLabel = new Label("C)");
-        Label dLabel = new Label("D)");
+        questionLabel = new Label("Question placeholder");
+        aLabel = new Label("A)");
+        bLabel = new Label("B)");
+        cLabel = new Label("C)");
+        dLabel = new Label("D)");
 
-        Button aButton = new Button("A");
+        aButton = new Button("A");
         aButton.setPrefSize(200, 80);
         aButton.setWrapText(true);
-        Button bButton = new Button("B");
+        bButton = new Button("B");
         bButton.setPrefSize(200, 80);
         bButton.setWrapText(true);
-        Button cButton = new Button("C");
+        cButton = new Button("C");
         cButton.setPrefSize(200, 80);
         cButton.setWrapText(true);
-        Button dButton = new Button("D");
+        dButton = new Button("D");
         dButton.setPrefSize(200, 80);
         dButton.setWrapText(true);
 
-        Button nextButton = new Button("Next");
+        nextButton = new Button("Next");
         nextButton.setAlignment(Pos.CENTER);
-        Label defLabel = new Label("Definiton: ");
+        defLabel = new Label("Definiton: ");
 
         VBox aBox = new VBox(8, aLabel, aButton);
         aBox.setAlignment(Pos.TOP_LEFT);
@@ -199,12 +231,12 @@ public class ApiApp extends Application {
 
         /** Initializes the end screen, to be shown when the game is over. */
     private void createEndScreen() {
-        Label gameOverLabel = new Label("Game Over!");
+        gameOverLabel = new Label("Game Over!");
         gameOverLabel.setFont(new Font(30));
-        Label scoreLabel = new Label("Correct answers: x/x\n" +
+        scoreLabel = new Label("Correct answers: x/x\n" +
             "Score: x%");
         scoreLabel.setFont(new Font(30));
-        Button playAgainButton = new Button("Play again?");
+        playAgainButton = new Button("Play again?");
         playAgainButton.setPrefSize(200, 80);
 
         HBox gameOverBox = new HBox(8, gameOverLabel);
@@ -225,7 +257,7 @@ public class ApiApp extends Application {
     private URI createTriviaSearchURI() {
         String baseString = "https://opentdb.com/api.php?type=multiple&";
         String amount = numField.getText().trim();
-        String category = categorySelect.getValue();
+        category = categorySelect.getValue();
         String diff = difficultySelect.getValue().toLowerCase();
 
         int num = 10;
@@ -278,8 +310,32 @@ public class ApiApp extends Application {
      * @return the URI to be used by the HTTP request
      */
     private URI createDictionarySearchURI () {
-        //TODO: Implement
-        return null;
+        String term = URLEncoder.encode(currentQuestion.correctAnswer.trim(),
+            StandardCharsets.UTF_8);
+        for (int i = 0; i < term.length(); i++) {
+            if (term.charAt(i) == '+') {
+                term = term.substring(0, i) + "%20" + term.substring(i + 1);
+            } // if
+        } // for
+        return URI.create(String.format("https://dictionaryapi.com/api/v3/references/" +
+        "collegiate/json/%s?key=8d40cdf8-661f-4048-ac22-8e3bf2667132", term));
+    } // createDictionarySearchURI
+
+        /** Creates a full URI to be used by the HTTP request for the dictionary
+     * definition of the word that should be searched for.
+     *
+     * @param term the term to search for
+     * @return the URI to be used by the HTTP request
+     */
+    private URI createDictionarySearchURI(String term) {
+        String newTerm = URLEncoder.encode(term.trim(), StandardCharsets.UTF_8);
+        for (int i = 0; i < newTerm.length(); i++) {
+            if (newTerm.charAt(i) == '+') {
+                newTerm = newTerm.substring(0, i) + "%20" + newTerm.substring(i + 1);
+            } // if
+        } // for
+        return URI.create(String.format("https://dictionaryapi.com/api/v3/references/" +
+        "collegiate/json/%s?key=8d40cdf8-661f-4048-ac22-8e3bf2667132", newTerm));
     } // createDictionarySearchURI
 
     /**
@@ -293,19 +349,19 @@ public class ApiApp extends Application {
             .uri(searchURI)
             .build();
         try {
-            // Make an HTTP request for the items matching the search terms and selected media type.
+            // Make an HTTP request for trivia questions matching the user input
             HttpResponse<String> response = HTTP_CLIENT.send(request, BodyHandlers.ofString());
             String body = response.body();
             if (response.statusCode() != 200) {
                 throw new IOException("Status code: " + response.statusCode());
             } // if
-            TriviaResponse triviaResponse = GSON
+            TriviaResponse tempTriviaResponse = GSON
                 .fromJson(body, TriviaResponse.class);
             // Check the API's status code to make sure that the questions were retrieved correctly
-            if (!triviaResponse.responseCode.equals("0")) {
-                throw new IOException("Trivia API status code: " + triviaResponse.responseCode);
+            if (!tempTriviaResponse.responseCode.equals("0")) {
+                throw new IOException("Trivia API status code: " + tempTriviaResponse.responseCode);
             } // if
-            return triviaResponse;
+            return tempTriviaResponse;
         } catch (IOException ioe) {
             Platform.runLater(() -> {
                 String message = "URI: " + searchURI +
@@ -326,4 +382,50 @@ public class ApiApp extends Application {
             return null;
         } // try
     } // getTriviaQuestions
+
+    /**
+     * Get the dictionary definition for the correct answer to the current trivia question.
+     *
+     * @return the dictionary definition for the correct answer to the current trivia question
+     */
+    private DictionaryResult[] getDictionaryDefinition() {
+        URI searchURI = createDictionarySearchURI();
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(searchURI)
+            .build();
+        HttpResponse<String> response = null;
+        String body = null;
+        try {
+            // Make an HTTP request for the definition(s) of the search term
+            response = HTTP_CLIENT.send(request, BodyHandlers.ofString());
+            body = response.body();
+            if (response.statusCode() != 200) {
+                throw new IOException("Status code: " + response.statusCode());
+            } // if
+            DictionaryResult[] dictionaryResults = GSON
+                .fromJson(body, DictionaryResult[].class);
+            return dictionaryResults;
+        } catch (IOException ioe) {
+            Platform.runLater(() -> {
+                String message = "URI: " + searchURI +
+                    "\n\nException: " + ioe.toString();
+                Alert alert = new Alert(AlertType.ERROR,
+                    message,
+                    ButtonType.CLOSE);
+                alert.showAndWait();
+            });
+            return null;
+        } catch (InterruptedException ie) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(AlertType.ERROR,
+                    ie.toString(),
+                    ButtonType.CLOSE);
+                alert.showAndWait();
+            });
+            return null;
+        } catch (IllegalStateException ise) {
+            System.out.println("No definition found for " + currentQuestion.correctAnswer);
+            return null;
+        } // try
+    } // getDictionaryDefinition
 } // ApiApp

@@ -7,4 +7,9 @@ package cs1302.api;
 public class DictionaryMeta {
     String id;
     String section;
+
+    @Override
+    public String toString() {
+        return String.format("id: %s | section: %s\n", id, section);
+    } // toString
 } // DictionaryMeta
