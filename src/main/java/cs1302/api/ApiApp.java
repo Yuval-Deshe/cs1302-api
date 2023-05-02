@@ -1,9 +1,19 @@
 package cs1302.api;
 
+import java.net.http.HttpClient;
+import java.net.*;
+import java.net.http.*;
+import java.net.http.HttpResponse.BodyHandlers;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import javafx.scene.control.*;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
@@ -11,6 +21,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.*;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+
+
 
 /**
  * A trivia game using the OpenTriviaDB API and the Merriam-Webster Dictionary API.
@@ -36,6 +48,11 @@ public class ApiApp extends Application {
     VBox titleRoot;
     VBox gameRoot;
     VBox endRoot;
+    Button playButton;
+    ComboBox<String> difficultySelect;
+    ComboBox<String> categorySelect;
+    TextField numField;
+
 
     /**
      * Constructs an {@code ApiApp} object. This default (i.e., no argument)
@@ -49,13 +66,18 @@ public class ApiApp extends Application {
 
     /** {@inheritDoc} */
     @Override
-    public void start(Stage stage) {
-
-        this.stage = stage;
-
+    public void init() {
         createTitleScreen();
         createGameScreen();
         createEndScreen();
+        playButton.setOnAction(e -> System.out.println(getTriviaQuestions()));
+    } // init
+
+    /** {@inheritDoc} */
+    @Override
+    public void start(Stage stage) {
+
+        this.stage = stage;
 
         //endScreen = new Scene(endRoot, 800, 320);
 
@@ -90,9 +112,10 @@ public class ApiApp extends Application {
         Label difficultyLabel = new Label("Select your difficulty:");
         Label categoryLabel = new Label("Select your category:");
         Label numLabel = new Label("Enter your desired number of questions (max 25):");
-        ComboBox<String> difficultySelect = new ComboBox<String>();
+        difficultySelect = new ComboBox<String>();
         difficultySelect.getItems().addAll("Any Difficulty", "Easy", "Medium", "Hard");
-        ComboBox<String> categorySelect = new ComboBox<String>();
+        difficultySelect.getSelectionModel().selectFirst();
+        categorySelect = new ComboBox<String>();
         categorySelect.getItems().addAll(
             "Science & Nature",
             "Computers",
@@ -102,7 +125,8 @@ public class ApiApp extends Application {
             "Animals",
             "Vehicles",
             "Comics");
-        TextField numField = new TextField();
+        categorySelect.getSelectionModel().selectFirst();
+        numField = new TextField("10");
 
         // containers for the above elements
         HBox titleBox = new HBox(8, title);
@@ -110,7 +134,7 @@ public class ApiApp extends Application {
         HBox categoryBox = new HBox(8, categoryLabel, categorySelect);
         HBox numBox = new HBox(8, numLabel, numField);
 
-        Button playButton = new Button("Play");
+        playButton = new Button("Play");
         HBox playBox = new HBox(8, playButton);
 
         // setup scene
@@ -194,20 +218,112 @@ public class ApiApp extends Application {
         endScreen = new Scene(endRoot, 800, 320);
     } // createEndScreen
 
-    /** Creates a full URI to be used by the HTTP request.
+    /** Creates a full URI to be used by the HTTP request for trivia questions.
      *
      * @return the URI to be used by the HTTP request
      */
-    private URI createSearchURI () {
-        String term = searchField.getText().trim();
-        String media = selectMedia.getValue();
+    private URI createTriviaSearchURI() {
+        String baseString = "https://opentdb.com/api.php?type=multiple&";
+        String amount = numField.getText().trim();
+        String category = categorySelect.getValue();
+        String diff = difficultySelect.getValue().toLowerCase();
 
-        String searchTerm = URLEncoder.encode(term, StandardCharsets.UTF_8);
-        String limit = URLEncoder.encode("200", StandardCharsets.UTF_8);
-        String searchMedia = URLEncoder.encode(media, StandardCharsets.UTF_8);
-        String query = String.format("term=%s&limit=%s&media=%s", searchTerm, limit, searchMedia);
-        return URI.create(BASE_URI + query);
-    } // createSearchURI
+        int num = 10;
+        try {
+            num = Integer.valueOf(amount);
+            if (num > 25) {
+                num = 25;
+            } // if
+        } catch (NumberFormatException e) {
+            Platform.runLater(() -> {
+                String message = "Invalid amount: " + amount +
+                     "\n\nException: " + e.toString();
+                Alert alert = new Alert(AlertType.ERROR,
+                    message,
+                    ButtonType.CLOSE);
+                alert.showAndWait();
+            });
+        } // catch
+        int categoryNum = 17;
+        if (category.equals("Science & Nature")) {
+            categoryNum = 17;
+        } else if (category.equals("Computers")) {
+            categoryNum = 18;
+        } else if (category.equals("Mythology")) {
+            categoryNum = 20;
+        } else if (category.equals("Geography")) {
+            categoryNum = 22;
+        } else if (category.equals("Art")) {
+            categoryNum = 25;
+        } else if (category.equals("Animals")) {
+            categoryNum = 27;
+        } else if (category.equals("Vehicles")) {
+            categoryNum = 28;
+        } else if (category.equals("Comics")) {
+            categoryNum = 29;
+        } // if
 
+        String query;
+        if (diff.equals("any difficulty")) {
+            query = String.format("amount=%s&category=%s", num, categoryNum);
+        } else {
+            query = String.format("amount=%s&category=%s&difficulty=%s", num, categoryNum, diff);
+        } // if
+        return URI.create(baseString + query);
+    } // createTriviaSearchURI
 
+    /** Creates a full URI to be used by the HTTP request for the dictionary
+     * definition of the word that should be searched for.
+     *
+     * @return the URI to be used by the HTTP request
+     */
+    private URI createDictionarySearchURI () {
+        //TODO: Implement
+        return null;
+    } // createDictionarySearchURI
+
+    /**
+     * Generate trivia questions when the "Play" {@code Button} is clicked.
+     *
+     * @return the response from the Trivia API
+     */
+    private TriviaResponse getTriviaQuestions() {
+        URI searchURI = createTriviaSearchURI();
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(searchURI)
+            .build();
+        try {
+            // Make an HTTP request for the items matching the search terms and selected media type.
+            HttpResponse<String> response = HTTP_CLIENT.send(request, BodyHandlers.ofString());
+            String body = response.body();
+            if (response.statusCode() != 200) {
+                throw new IOException("Status code: " + response.statusCode());
+            } // if
+            TriviaResponse triviaResponse = GSON
+                .fromJson(body, TriviaResponse.class);
+            // Check the API's status code to make sure that the questions were retrieved correctly
+            if (!triviaResponse.responseCode.equals("0")) {
+                throw new IOException("Trivia API status code: " + triviaResponse.responseCode);
+            } // if
+            return triviaResponse;
+        } catch (IOException ioe) {
+            Platform.runLater(() -> {
+                String message = "URI: " + searchURI +
+                    "\n\nException: " + ioe.toString();
+                Alert alert = new Alert(AlertType.ERROR,
+                    message,
+                    ButtonType.CLOSE);
+                alert.showAndWait();
+            });
+            return null;
+        } catch (InterruptedException ie) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(AlertType.ERROR,
+                    ie.toString(),
+                    ButtonType.CLOSE);
+                alert.showAndWait();
+            });
+            return null;
+        } // try
+    } // getTriviaQuestions
 } // ApiApp
