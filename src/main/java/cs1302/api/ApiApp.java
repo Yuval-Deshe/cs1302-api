@@ -6,6 +6,7 @@ import java.net.http.*;
 import java.net.http.HttpResponse.BodyHandlers;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -97,10 +98,10 @@ public class ApiApp extends Application {
         createGameScreen();
         createEndScreen();
         playButton.setOnAction(e -> {
-            triviaResponse = getTriviaQuestions();
-            currentQuestion = triviaResponse.results[0];
+            //triviaResponse = getTriviaQuestions();
+            //currentQuestion = triviaResponse.results[0];
             questionNum = 0;
-            System.out.println(createDictionarySearchURI());
+            System.out.println("https://dictionaryapi.com/api/v3/references/collegiate/json/Apollo%2011?key=8d40cdf8-661f-4048-ac22-8e3bf2667132");
             System.out.println(Arrays.toString(getDictionaryDefinition()));
         });
     } // init
@@ -389,7 +390,7 @@ public class ApiApp extends Application {
      * @return the dictionary definition for the correct answer to the current trivia question
      */
     private DictionaryResult[] getDictionaryDefinition() {
-        URI searchURI = createDictionarySearchURI();
+        URI searchURI = URI.create("https://dictionaryapi.com/api/v3/references/collegiate/json/Apollo%2011?key=8d40cdf8-661f-4048-ac22-8e3bf2667132");
         HttpRequest request = HttpRequest.newBuilder()
             .uri(searchURI)
             .build();
@@ -423,8 +424,8 @@ public class ApiApp extends Application {
                 alert.showAndWait();
             });
             return null;
-        } catch (IllegalStateException ise) {
-            System.out.println("No definition found for " + currentQuestion.correctAnswer);
+        } catch (JsonSyntaxException jse) {
+            System.out.println("No definition found for Apollo 11.");
             return null;
         } // try
     } // getDictionaryDefinition
