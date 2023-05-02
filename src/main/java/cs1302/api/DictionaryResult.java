@@ -12,6 +12,14 @@ public class DictionaryResult {
 
     @Override
     public String toString() {
-        return "shortdef: " + Arrays.toString(shortdef) + "\n" + meta;
+        String tempId = meta.id;
+        if (tempId.contains(":")) {
+            tempId = tempId.substring(0, tempId.indexOf(":"));
+        } // if
+        String ret = tempId + ":";
+        for (int i = 0; i < shortdef.length; i++) {
+            ret = ret + "\n" + (i + 1) + ". " + shortdef[i];
+        } // for
+        return ret;
     } // toString
 } // DictionaryResult

@@ -6,6 +6,7 @@ import java.net.http.*;
 import java.net.http.HttpResponse.BodyHandlers;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -76,6 +77,8 @@ public class ApiApp extends Application {
 
     String category;
     int questionNum;
+    int numQuestions;
+    int numCorrect;
     TriviaResponse triviaResponse;
     TriviaResult currentQuestion;
 
@@ -93,16 +96,24 @@ public class ApiApp extends Application {
     /** {@inheritDoc} */
     @Override
     public void init() {
+        numCorrect = 0;
+        questionNum = -1;
         createTitleScreen();
         createGameScreen();
         createEndScreen();
         playButton.setOnAction(e -> {
             triviaResponse = getTriviaQuestions();
             currentQuestion = triviaResponse.results[0];
-            questionNum = 0;
-            System.out.println(createDictionarySearchURI());
-            System.out.println(Arrays.toString(getDictionaryDefinition()));
+            numQuestions = triviaResponse.results.length;
+            nextQuestion();
+            changeScreen(gameScreen, "Trivia App: Quiz");
         });
+        nextButton.setOnAction(e -> nextQuestion());
+        playAgainButton.setOnAction(e -> {
+            changeScreen(titleScreen, "Trivia App: Title Screen");
+            numCorrect = 0;
+            questionNum = -1;
+                });
     } // init
 
     /** {@inheritDoc} */
@@ -155,8 +166,7 @@ public class ApiApp extends Application {
             "Geography",
             "Art",
             "Animals",
-            "Vehicles",
-            "Comics");
+            "Vehicles");
         categorySelect.getSelectionModel().selectFirst();
         numField = new TextField("10");
 
@@ -183,6 +193,7 @@ public class ApiApp extends Application {
     /** Initializes the game screen, to be shown when the Play button is cilcked. */
     private void createGameScreen() {
         questionLabel = new Label("Question placeholder");
+        questionLabel.setWrapText(true);
         aLabel = new Label("A)");
         bLabel = new Label("B)");
         cLabel = new Label("C)");
@@ -204,6 +215,7 @@ public class ApiApp extends Application {
         nextButton = new Button("Next");
         nextButton.setAlignment(Pos.CENTER);
         defLabel = new Label("Definiton: ");
+        defLabel.setWrapText(true);
 
         VBox aBox = new VBox(8, aLabel, aButton);
         aBox.setAlignment(Pos.TOP_LEFT);
@@ -226,7 +238,7 @@ public class ApiApp extends Application {
         questionBox.setAlignment(Pos.CENTER);
         row1.setAlignment(Pos.CENTER);
         row2.setAlignment(Pos.CENTER);
-        gameScreen = new Scene(gameRoot, 800, 320);
+        gameScreen = new Scene(gameRoot, 800, 400);
     } // createGameScreen
 
         /** Initializes the end screen, to be shown when the game is over. */
@@ -423,9 +435,151 @@ public class ApiApp extends Application {
                 alert.showAndWait();
             });
             return null;
-        } catch (IllegalStateException ise) {
-            System.out.println("No definition found for " + currentQuestion.correctAnswer);
+        } catch (JsonSyntaxException jse) {
             return null;
         } // try
     } // getDictionaryDefinition
+
+    /**
+     * Change to the next question.
+     */
+    private void nextQuestion() {
+        // update the question number and the question text
+        if (questionNum < triviaResponse.results.length) {
+            questionNum += 1;
+        } // if
+        if (questionNum == triviaResponse.results.length) {
+            gameOver();
+            return;
+        } // if
+        Platform.runLater(() -> {
+            defLabel.setText("");
+            String questionText = String.format("%s/%s: %s", questionNum + 1,
+                triviaResponse.results.length, currentQuestion.question);
+            questionLabel.setText(questionText);
+            aButton.setStyle(null);
+            bButton.setStyle(null);
+            cButton.setStyle(null);
+            dButton.setStyle(null);
+            nextButton.setDisable(true);
+            aButton.setDisable(false);
+            bButton.setDisable(false);
+            cButton.setDisable(false);
+            dButton.setDisable(false);
+        });
+        currentQuestion = triviaResponse.results[questionNum];
+
+        // Generate a random int value from 0 to 3, representing answer choices
+        // a, b, c, and d respectively.
+        int correctButton = (int) Math.floor(Math.random() * 4);
+        Button[] buttonList = new Button[] {aButton, bButton, cButton, dButton};
+
+        int count = 0;
+        for (int i = 0; i < buttonList.length; i++) {
+            if (i != correctButton) {
+                Button currentButton = buttonList[i];
+                String currentAnswer = currentQuestion.incorrectAnswers[count];
+                currentButton.setOnAction(e -> answerIncorrectly(currentButton));
+                // if the button DOES NOT represent the correct answer, change its text to represent
+                // one of the incorrect answer choices. Set the button to an incorrect answer.
+                Platform.runLater(() -> currentButton.setText(currentAnswer));
+                count += 1;
+            } else {
+                Button currentButton = buttonList[i];
+                // if the button represents the correct answer, change its text to represent
+                // the correct answer choice. Set the chosen button the the correct answer.
+                currentButton.setOnAction(e -> answerCorrectly(currentButton));
+                Platform.runLater(() -> currentButton.setText(currentQuestion.correctAnswer));
+            } // if
+        } // for
+    } // nextQuestion
+
+    /**
+     * Checks for a definition to the correct answer that is relevant to the category.
+     * e.g.: a biographical definition for a Science & Nature question.
+     *
+     * @return the relevant definition of the correct answer, or the first definition if there is no
+     * relevant definition
+     */
+    private String checkRelevantDef() {
+        DictionaryResult[] def = getDictionaryDefinition();
+        if (def == null || def.length == 0) {
+            return "No definition found for \"" + currentQuestion.correctAnswer + "\".";
+        } else {
+            for (int i = 0; i < def.length; i++) {
+                if (category.equals("Science & Nature") &&
+                    def[i].meta.section.equals("biog")) {
+                    // if it is a Science & Nature question and there is a biographical
+                    // definition for the word, prioritize it.
+                    return def[i].toString();
+                } else if (category.equals("Geography") &&
+                        def[i].meta.section.equals("geog")) {
+                    // if it is a Geography question and there is a geographical
+                    // definition for the word, prioritize it.
+                    return def[i].toString();
+                } // if
+            } // for
+        } // if
+        return def[0].toString();
+    } // checkRelevantDef
+
+    /**
+     * A method that is called when a question is answered correctly. Increments the correct
+     * answer count, highlights the correct answer green, and displays its definition.
+     *
+     * @param b the button that was clicked
+     */
+    private void answerCorrectly(Button b) {
+        numCorrect += 1; // increment the number of correct questions answered
+        Platform.runLater(() -> {
+            // make the button green
+            b.setStyle("-fx-background-color: #00ff00;");
+            // change defLabel to display the definition of the correct answer
+            defLabel.setText(checkRelevantDef());
+            nextButton.setDisable(false);
+            aButton.setDisable(true);
+            bButton.setDisable(true);
+            cButton.setDisable(true);
+            dButton.setDisable(true);
+        });
+    } // answerCorrectly
+
+    /**
+     * A method that is called when a question is answered incorrectly. Highlights the
+     * chosen answer red, the correct answer green, and displays the correct answer's definition.
+     *
+     * @param b the button that was clicked
+     */
+    private void answerIncorrectly(Button b) {
+        Button[] buttonList = new Button[] {aButton, bButton, cButton, dButton};
+        Button temp = null;
+        // find the button that represents the correct answer
+        for (int i = 0; i < buttonList.length; i++) {
+            if (buttonList[i].getText().equals(currentQuestion.correctAnswer)) {
+                temp = buttonList[i];
+            } // if
+        } // for
+
+        Button correct = temp;
+        Platform.runLater(() -> {
+            // make the chosen button red and the correct button green
+            b.setStyle("-fx-background-color: #ff0000;");
+            correct.setStyle("-fx-background-color: #00ff00;");
+            // change defLabel to display the definition of the correct answer
+            defLabel.setText(checkRelevantDef());
+            nextButton.setDisable(false);
+            aButton.setDisable(true);
+            bButton.setDisable(true);
+            cButton.setDisable(true);
+            dButton.setDisable(true);
+        });
+    } // answerIncorrectly
+
+    /** Ends the quiz and changes to the end screen. */
+    private void gameOver() {
+        double score = 100 * ((double) numCorrect / (double) numQuestions);
+        Platform.runLater(() -> scoreLabel.setText("Correct answers: " + numCorrect +
+            "/" + numQuestions + "\nScore: " + score + "%"));
+        changeScreen(endScreen, "Trivia App: Game Over");
+    } // gameOver
 } // ApiApp
