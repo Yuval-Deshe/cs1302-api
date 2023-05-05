@@ -24,8 +24,6 @@ import javafx.scene.text.*;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-
-
 /**
  * A trivia game using the OpenTriviaDB API and the Merriam-Webster Dictionary API.
  */
@@ -75,6 +73,7 @@ public class ApiApp extends Application {
     Label scoreLabel;
     Button playAgainButton;
 
+    // Local variables
     String category;
     int questionNum;
     int numQuestions;
@@ -113,7 +112,7 @@ public class ApiApp extends Application {
             changeScreen(titleScreen, "Trivia App: Title Screen");
             numCorrect = 0;
             questionNum = -1;
-                });
+        });
     } // init
 
     /** {@inheritDoc} */
@@ -121,8 +120,6 @@ public class ApiApp extends Application {
     public void start(Stage stage) {
 
         this.stage = stage;
-
-        //endScreen = new Scene(endRoot, 800, 320);
 
         // setup stage
         changeScreen(titleScreen, "Trivia App: Title Screen");
@@ -371,7 +368,21 @@ public class ApiApp extends Application {
                 .fromJson(body, TriviaResponse.class);
             // Check the API's status code to make sure that the questions were retrieved correctly
             if (!tempTriviaResponse.responseCode.equals("0")) {
-                throw new IOException("Trivia API status code: " + tempTriviaResponse.responseCode);
+                if (tempTriviaResponse.responseCode.equals("1")) {
+                    throw new IOException("Trivia API status code: 1: No Results - " +
+                        " Could not return results. The API doesn't have enough questions for " +
+                        "your query. (Ex. Asking for 50 Questions in a Category that only has 20)");
+                } else if (tempTriviaResponse.responseCode.equals("2")) {
+                    throw new IOException("Trivia API status code: 2: Invalid Parameter - " +
+                    "Contains an invalid parameter. Arguements passed in aren't valid.");
+                } else if (tempTriviaResponse.responseCode.equals("3")) {
+                    throw new IOException("Trivia API status code: 3: Token Not Found - Session " +
+                    "Token does not exist.");
+                } else if (tempTriviaResponse.responseCode.equals("4")) {
+                    throw new IOException("Trivia API status code: 4: Token Empty - Session " +
+                        "Token has returned all possible questions for the specified query." +
+                        " Resetting the Token is necessary.\n\n");
+                } // if
             } // if
             return tempTriviaResponse;
         } catch (IOException ioe) {
@@ -455,8 +466,8 @@ public class ApiApp extends Application {
         Platform.runLater(() -> {
             defLabel.setText("");
             String questionText = String.format("%s/%s: %s", questionNum + 1,
-                triviaResponse.results.length, currentQuestion.question);
-            questionLabel.setText(questionText);
+                triviaResponse.results.length, decodeHtml(currentQuestion.question));
+            questionLabel.setText(decodeHtml(questionText));
             aButton.setStyle(null);
             bButton.setStyle(null);
             cButton.setStyle(null);
@@ -478,7 +489,7 @@ public class ApiApp extends Application {
         for (int i = 0; i < buttonList.length; i++) {
             if (i != correctButton) {
                 Button currentButton = buttonList[i];
-                String currentAnswer = currentQuestion.incorrectAnswers[count];
+                String currentAnswer = decodeHtml(currentQuestion.incorrectAnswers[count]);
                 currentButton.setOnAction(e -> answerIncorrectly(currentButton));
                 // if the button DOES NOT represent the correct answer, change its text to represent
                 // one of the incorrect answer choices. Set the button to an incorrect answer.
@@ -488,8 +499,9 @@ public class ApiApp extends Application {
                 Button currentButton = buttonList[i];
                 // if the button represents the correct answer, change its text to represent
                 // the correct answer choice. Set the chosen button the the correct answer.
+                String correctAnswer = decodeHtml(currentQuestion.correctAnswer);
                 currentButton.setOnAction(e -> answerCorrectly(currentButton));
-                Platform.runLater(() -> currentButton.setText(currentQuestion.correctAnswer));
+                Platform.runLater(() -> currentButton.setText(correctAnswer));
             } // if
         } // for
     } // nextQuestion
@@ -504,7 +516,7 @@ public class ApiApp extends Application {
     private String checkRelevantDef() {
         DictionaryResult[] def = getDictionaryDefinition();
         if (def == null || def.length == 0) {
-            return "No definition found for \"" + currentQuestion.correctAnswer + "\".";
+            return "No definition found for \"" + decodeHtml(currentQuestion.correctAnswer) + "\".";
         } else {
             for (int i = 0; i < def.length; i++) {
                 if (category.equals("Science & Nature") &&
@@ -582,4 +594,23 @@ public class ApiApp extends Application {
             "/" + numQuestions + "\nScore: " + score + "%"));
         changeScreen(endScreen, "Trivia App: Game Over");
     } // gameOver
+
+    /**
+     * Decode HTML formatting.
+     *
+     * @param s the string to be decoded
+     * @return the decoded string
+     */
+    private String decodeHtml(String s) {
+        s = s.replace("&nbsp;", " ");
+        s = s.replace("&quot;", "\"");
+        s = s.replace("&rdquo;", "\"");
+        s = s.replace("&ldquo;", "\"");
+        s = s.replace("&apos;", "'");
+        s = s.replace("&#039;", "'");
+        s = s.replace("&lt;", "<");
+        s = s.replace("&gt;", ">");
+        s = s.replace("&amp;", "&");
+        return s;
+    } // decodeHtml
 } // ApiApp
